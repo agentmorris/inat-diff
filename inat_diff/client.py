@@ -95,11 +95,13 @@ class iNatClient:
         Get species counts - much more efficient than fetching all observations.
 
         This endpoint returns aggregated counts of species/taxa without fetching
-        individual observations.
+        individual observations. Uses leaf_taxa=true to include all taxonomic ranks
+        (genus, family, etc.), not just species-level identifications.
         """
         params = {
             "per_page": per_page,
-            "page": page
+            "page": page,
+            "leaf_taxa": "true"  # Include all taxonomic ranks, not just species
         }
 
         if place_id:
