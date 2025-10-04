@@ -32,6 +32,7 @@ setup(
     entry_points={
         "console_scripts": [
             "inat-diff=inat_diff.cli:main",
+            "inat-diff-visualize=inat_diff.visualize:main",
         ],
     },
 )

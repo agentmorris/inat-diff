@@ -265,6 +265,7 @@ class SpeciesQuery:
                                     "preferred_common_name": taxon.get("taxon", {}).get("preferred_common_name"),
                                     "rank": taxon.get("taxon", {}).get("rank"),
                                     "iconic_taxon": taxon.get("taxon", {}).get("iconic_taxon_name"),
+                                    "ancestor_ids": taxon.get("taxon", {}).get("ancestor_ids", []),
                                     "observation_count": taxon.get("count", 0)
                                 }
 
@@ -309,21 +310,49 @@ class SpeciesQuery:
 
         if verbose:
             print(f"Found {len(historical_species_map)} species in historical period", file=sys.stderr)
-            print(f"Comparing species lists...", file=sys.stderr)
+            print(f"Comparing species lists (including ancestry)...", file=sys.stderr)
 
-        # Step 3: Compare - find species in current but NOT in historical
+        # Step 3: Build a set of all historical taxon IDs that were observed
+        # This includes both the taxa themselves AND any taxa that are ancestors
+        # of observed taxa (to handle genus-level IDs vs species-level IDs)
+        historical_taxon_ids = set(historical_species_map.keys())
+
+        # Also build a set of all taxon IDs that appear in ancestor_ids of historical taxa
+        # This helps us detect when a higher-level taxon (e.g., genus) was observed
+        # in the current period but only species-level observations exist historically
+        for historical_taxon in historical_species_map.values():
+            historical_taxon_ids.update(historical_taxon.get("ancestor_ids", []))
+
+        # Step 4: Compare - find species in current but NOT in historical
         new_species = []
         established_species = []
 
         for taxon_id, species in current_species_map.items():
+            # Check if this taxon or any of its descendants were observed historically
+            found_historically = False
+            historical_count = 0
+
+            # First check: exact match
             if taxon_id in historical_species_map:
-                # Species was previously observed
+                found_historically = True
+                historical_count = historical_species_map[taxon_id]["observation_count"]
+
+            # Second check: is this taxon an ancestor of any historical observations?
+            # This handles the case where current period has genus-level ID but
+            # historical period has species-level IDs
+            elif taxon_id in historical_taxon_ids:
+                found_historically = True
+                # Count all historical observations of descendants
+                for hist_taxon_id, hist_species in historical_species_map.items():
+                    if taxon_id in hist_species.get("ancestor_ids", []):
+                        historical_count += hist_species["observation_count"]
+
+            if found_historically:
                 established_species.append({
                     **species,
-                    "historical_count": historical_species_map[taxon_id]["observation_count"]
+                    "historical_count": historical_count
                 })
             else:
-                # Species is new - not in historical data
                 new_species.append({
                     **species,
                     "historical_count": 0

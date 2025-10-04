@@ -133,6 +133,159 @@ List all species observed in a region during a time period.
 inat-diff list-species "this month" "Oregon"
 ```
 
+## HTML Visualization
+
+Generate interactive HTML reports from JSON output:
+
+```bash
+# Save query results to JSON
+inat-diff new-species "this month" "Oregon" --output-file results.json
+
+# Generate HTML visualization
+inat-diff-visualize results.json report.html
+```
+
+The HTML report includes:
+- Summary statistics with visual cards
+- Sortable species lists with common and scientific names
+- Direct links to iNaturalist observations for each species
+- Badges showing taxonomic rank, iconic taxon, and "new" status
+- Observation counts for current and historical periods
+- Responsive design for mobile and desktop viewing
+
+**Example:**
+```bash
+# Complete workflow
+inat-diff new-species "last month" "Delaware" -o delaware.json
+inat-diff-visualize delaware.json delaware.html
+open delaware.html  # or xdg-open on Linux
+```
+
+## JSON Output Format
+
+All commands support the `--output-file` (`-o`) option to save results as JSON. This is useful for creating visualizations, further analysis, or linking to iNaturalist observations.
+
+### `new-species` Output
+
+```json
+{
+  "query": {
+    "region": "Oregon",
+    "place_id": 10,
+    "time_period": "this month",
+    "start_date": "2025-10-01",
+    "end_date": "2025-10-03"
+  },
+  "lookback_period": "2005-09-30 to 2025-09-30",
+  "lookback_years": 20,
+  "total_species_in_period": 1234,
+  "new_species_count": 5,
+  "established_species_count": 1229,
+  "new_species": [
+    {
+      "id": 12345,
+      "name": "Panthera leo",
+      "preferred_common_name": "Lion",
+      "rank": "species",
+      "iconic_taxon": "Animalia",
+      "observation_count": 3,
+      "historical_count": 0
+    }
+  ],
+  "established_species": [
+    {
+      "id": 67890,
+      "name": "Canis lupus",
+      "preferred_common_name": "Gray Wolf",
+      "rank": "species",
+      "iconic_taxon": "Animalia",
+      "observation_count": 15,
+      "historical_count": 142
+    }
+  ],
+  "rate_limit_seconds": 1.2
+}
+```
+
+**Field Descriptions:**
+- **`query`**: Metadata about the search parameters
+  - `region`: Region name as provided
+  - `place_id`: iNaturalist place ID for the region
+  - `time_period`: Time period string as provided
+  - `start_date`/`end_date`: Parsed date range (YYYY-MM-DD)
+- **`lookback_period`**: Historical date range used for comparison
+- **`lookback_years`**: Years of lookback used
+- **`total_species_in_period`**: Total unique species observed in the current period
+- **`new_species_count`**: Number of species with no historical observations
+- **`established_species_count`**: Number of species with historical observations
+- **`new_species`**: Array of species objects with no prior observations
+- **`established_species`**: Array of species objects with prior observations
+- **`rate_limit_seconds`**: Rate limiting setting used
+
+**Species Object Fields:**
+- `id`: iNaturalist taxon ID (can be used to construct URLs: `https://www.inaturalist.org/taxa/{id}`)
+- `name`: Scientific (Latin) name
+- `preferred_common_name`: Common name in English (may be `null`)
+- `rank`: Taxonomic rank (`"species"`, `"genus"`, `"subspecies"`, etc.)
+- `iconic_taxon`: High-level taxonomic group (`"Animalia"`, `"Plantae"`, `"Insecta"`, `"Fungi"`, etc.)
+- `observation_count`: Number of observations in the current period
+- `historical_count`: Number of observations in the lookback period (0 for new species)
+
+### `query` Output
+
+```json
+{
+  "query": {
+    "taxon_name": "Panthera leo",
+    "taxon_id": 12345,
+    "region": "Kenya",
+    "place_id": 6986,
+    "time_period": "last 30 days",
+    "start_date": "2025-09-03",
+    "end_date": "2025-10-03"
+  },
+  "place_info": {
+    "id": 6986,
+    "name": "Kenya",
+    "display_name": "Kenya"
+  },
+  "observations": {
+    "total_results": 42,
+    "per_page": 30,
+    "page": 1,
+    "results": [...]
+  },
+  "total_results": 42,
+  "per_page": 30,
+  "page": 1
+}
+```
+
+### `list-species` Output
+
+```json
+{
+  "query": {
+    "region": "Oregon",
+    "place_id": 10,
+    "time_period": "last month",
+    "start_date": "2025-09-03",
+    "end_date": "2025-10-03"
+  },
+  "species_count": 1234,
+  "total_observations": 5678,
+  "species": [
+    {
+      "id": 12345,
+      "name": "Canis lupus",
+      "preferred_common_name": "Gray Wolf",
+      "rank": "species",
+      "observation_count": 15
+    }
+  ]
+}
+```
+
 ## Library Components
 
 - **`iNatClient`**: Core API client for iNaturalist
