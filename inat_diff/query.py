@@ -205,13 +205,14 @@ class SpeciesQuery:
         This is the main use case: "what new species have been seen this month
         in Oregon that have not previously been observed in Oregon?"
 
-        Uses the efficient species_counts endpoint to minimize API calls.
+        Uses two species_counts queries and compares them - much faster than
+        checking each species individually.
 
         Args:
             time_period: Recent time period to check
             region: Name of the region
             lookback_years: How many years to look back for historical data
-            rate_limit: Seconds to wait between API calls (default: 1.0 = 60 req/min)
+            rate_limit: Seconds to wait between API calls (default: 1.2 = 50 req/min)
             verbose: Print progress information
 
         Returns:
@@ -228,130 +229,105 @@ class SpeciesQuery:
 
         place_id = self.client.resolve_place(region)
 
-        if verbose:
-            print(f"Fetching species observed in {region} during {time_period}...", file=sys.stderr)
+        # Helper function to fetch all species with retry logic
+        def fetch_all_species(period_start: str, period_end: str, period_name: str):
+            species_map = {}
+            page = 1
+            no_more_results = False
 
-        # Step 1: Get all species in the current period using species_counts
-        current_species_map = {}
-        page = 1
-        no_more_results = False
+            while not no_more_results:
+                max_retries = 5
+                retry_count = 0
+                success = False
 
-        while not no_more_results:
-            max_retries = 5
-            retry_count = 0
-            success = False
+                while retry_count < max_retries and not success:
+                    try:
+                        counts = self.client.get_species_counts(
+                            place_id=place_id,
+                            d1=period_start,
+                            d2=period_end,
+                            per_page=500,
+                            page=page
+                        )
 
-            while retry_count < max_retries and not success:
-                try:
-                    counts = self.client.get_species_counts(
-                        place_id=place_id,
-                        d1=start_date,
-                        d2=end_date,
-                        per_page=500,
-                        page=page
-                    )
+                        results = counts.get("results", [])
+                        if not results:
+                            no_more_results = True
+                            success = True
+                            break
 
-                    results = counts.get("results", [])
-                    if not results:
-                        # No more results, exit pagination loop
-                        no_more_results = True
+                        for taxon in results:
+                            taxon_id = taxon.get("taxon", {}).get("id")
+                            if taxon_id:
+                                species_map[taxon_id] = {
+                                    "id": taxon_id,
+                                    "name": taxon.get("taxon", {}).get("name"),
+                                    "preferred_common_name": taxon.get("taxon", {}).get("preferred_common_name"),
+                                    "rank": taxon.get("taxon", {}).get("rank"),
+                                    "iconic_taxon": taxon.get("taxon", {}).get("iconic_taxon_name"),
+                                    "observation_count": taxon.get("count", 0)
+                                }
+
                         success = True
-                        break
+                        page += 1
+                        time.sleep(rate_limit)
 
-                    for taxon in results:
-                        taxon_id = taxon.get("taxon", {}).get("id")
-                        if taxon_id:
-                            current_species_map[taxon_id] = {
-                                "id": taxon_id,
-                                "name": taxon.get("taxon", {}).get("name"),
-                                "preferred_common_name": taxon.get("taxon", {}).get("preferred_common_name"),
-                                "rank": taxon.get("taxon", {}).get("rank"),
-                                "iconic_taxon": taxon.get("taxon", {}).get("iconic_taxon_name"),
-                                "observation_count": taxon.get("count", 0)
-                            }
+                    except Exception as e:
+                        retry_count += 1
+                        if retry_count < max_retries:
+                            backoff_time = rate_limit * (2 ** retry_count)
+                            if verbose:
+                                print(f"  Error fetching {period_name} (page {page}): {e}", file=sys.stderr)
+                                print(f"  Retrying in {backoff_time:.1f}s (attempt {retry_count}/{max_retries})...", file=sys.stderr)
+                            time.sleep(backoff_time)
+                        else:
+                            error_msg = f"Failed to fetch {period_name} (page {page}) after {max_retries} retries: {e}"
+                            if verbose:
+                                print(f"  {error_msg}", file=sys.stderr)
+                            raise iNatAPIError(error_msg)
 
-                    success = True
-                    page += 1
-                    time.sleep(rate_limit)
+            return species_map
 
-                except Exception as e:
-                    retry_count += 1
-                    if retry_count < max_retries:
-                        backoff_time = rate_limit * (2 ** retry_count)
-                        if verbose:
-                            print(f"  Error fetching current species (page {page}): {e}", file=sys.stderr)
-                            print(f"  Retrying in {backoff_time:.1f}s (attempt {retry_count}/{max_retries})...", file=sys.stderr)
-                        time.sleep(backoff_time)
-                    else:
-                        error_msg = f"Failed to fetch current species (page {page}) after {max_retries} retries: {e}"
-                        if verbose:
-                            print(f"  {error_msg}", file=sys.stderr)
-                        raise iNatAPIError(error_msg)
-
-        total_species = len(current_species_map)
+        # Step 1: Get all species in the current period
         if verbose:
-            print(f"Found {total_species} species in current period", file=sys.stderr)
-            print(f"Checking each for historical presence (this may take a while)...", file=sys.stderr)
-            est_time = total_species * rate_limit / 60
-            print(f"Estimated time: {est_time:.1f} minutes at {rate_limit}s per request", file=sys.stderr)
+            print(f"Fetching species in {region} during {time_period}...", file=sys.stderr)
 
-        # Step 2: Check each species for historical presence
+        current_species_map = fetch_all_species(start_date, end_date, "current period")
+
+        if verbose:
+            print(f"Found {len(current_species_map)} species in current period", file=sys.stderr)
+
+        # Step 2: Get all species in the historical period
+        if verbose:
+            print(f"Fetching historical species (lookback {lookback_years} years)...", file=sys.stderr)
+
+        historical_species_map = fetch_all_species(
+            historical_start.strftime("%Y-%m-%d"),
+            historical_end.strftime("%Y-%m-%d"),
+            "historical period"
+        )
+
+        if verbose:
+            print(f"Found {len(historical_species_map)} species in historical period", file=sys.stderr)
+            print(f"Comparing species lists...", file=sys.stderr)
+
+        # Step 3: Compare - find species in current but NOT in historical
         new_species = []
         established_species = []
 
-        for idx, (taxon_id, species) in enumerate(current_species_map.items(), 1):
-            if verbose and idx % 25 == 0:
-                print(f"  Progress: {idx}/{total_species} ({100*idx/total_species:.1f}%)", file=sys.stderr)
-
-            # Retry logic with exponential backoff
-            max_retries = 5
-            retry_count = 0
-            success = False
-
-            while retry_count < max_retries and not success:
-                try:
-                    # Use species_counts to check historical presence (more efficient than observations)
-                    historical_counts = self.client.get_species_counts(
-                        place_id=place_id,
-                        taxon_id=taxon_id,
-                        d1=historical_start.strftime("%Y-%m-%d"),
-                        d2=historical_end.strftime("%Y-%m-%d"),
-                        per_page=1
-                    )
-
-                    # Check if this taxon has any historical observations
-                    historical_results = historical_counts.get("results", [])
-                    has_history = len(historical_results) > 0 and historical_results[0].get("count", 0) > 0
-
-                    species_info = {
-                        **species,
-                        "historical_count": historical_results[0].get("count", 0) if historical_results else 0
-                    }
-
-                    if not has_history:
-                        new_species.append(species_info)
-                    else:
-                        established_species.append(species_info)
-
-                    success = True
-                    # Rate limiting
-                    time.sleep(rate_limit)
-
-                except Exception as e:
-                    retry_count += 1
-                    if retry_count < max_retries:
-                        # Exponential backoff: 2, 4, 8, 16 seconds
-                        backoff_time = rate_limit * (2 ** retry_count)
-                        if verbose:
-                            print(f"  Error checking {species.get('name', 'Unknown')}: {e}", file=sys.stderr)
-                            print(f"  Retrying in {backoff_time:.1f}s (attempt {retry_count}/{max_retries})...", file=sys.stderr)
-                        time.sleep(backoff_time)
-                    else:
-                        # Max retries exceeded - fail the entire operation
-                        error_msg = f"Failed to check species '{species.get('name', 'Unknown')}' after {max_retries} retries: {e}"
-                        if verbose:
-                            print(f"  {error_msg}", file=sys.stderr)
-                        raise iNatAPIError(error_msg)
+        for taxon_id, species in current_species_map.items():
+            if taxon_id in historical_species_map:
+                # Species was previously observed
+                established_species.append({
+                    **species,
+                    "historical_count": historical_species_map[taxon_id]["observation_count"]
+                })
+            else:
+                # Species is new - not in historical data
+                new_species.append({
+                    **species,
+                    "historical_count": 0
+                })
 
         if verbose:
             print(f"Complete! Found {len(new_species)} new species", file=sys.stderr)
@@ -366,7 +342,7 @@ class SpeciesQuery:
             },
             "lookback_period": f"{historical_start.strftime('%Y-%m-%d')} to {historical_end.strftime('%Y-%m-%d')}",
             "lookback_years": lookback_years,
-            "total_species_in_period": total_species,
+            "total_species_in_period": len(current_species_map),
             "new_species_count": len(new_species),
             "established_species_count": len(established_species),
             "new_species": new_species,
