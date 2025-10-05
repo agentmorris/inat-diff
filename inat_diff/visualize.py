@@ -3,6 +3,7 @@
 import argparse
 import json
 import sys
+import time
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional
@@ -221,46 +222,97 @@ def _normalize_int(value: Any) -> Optional[int]:
 
 
 @lru_cache(maxsize=512)
-def _fetch_highest_quality_grade(taxon_id: int, place_id: Optional[int]) -> Optional[str]:
-    """Return highest available observation quality grade for a taxon."""
+def _fetch_highest_quality_grade(taxon_id: int, place_id: Optional[int]) -> tuple[Optional[str], Optional[str]]:
+    """Return highest available observation quality grade for a taxon.
+
+    Returns:
+        Tuple of (grade, error_message) where:
+        - grade: The quality grade string ('research', 'needs_id', 'casual') or None if no observations
+        - error_message: Error description if API call failed, None otherwise
+    """
     base_params = {"taxon_id": taxon_id, "per_page": 1}
     if place_id is not None:
         base_params["place_id"] = place_id
+
+    max_retries = 3
+    retry_delay = 1.0  # Initial retry delay in seconds
 
     for grade in QUALITY_PRIORITY:
         params = dict(base_params)
         params["quality_grade"] = grade
 
-        try:
-            response = requests.get(
-                API_BASE_URL, params=params, timeout=REQUEST_TIMEOUT, headers={"User-Agent": "inat-diff-visualize"}
-            )
-            response.raise_for_status()
-            payload = response.json()
-        except (requests.RequestException, ValueError):
-            return None
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(
+                    API_BASE_URL, params=params, timeout=REQUEST_TIMEOUT, headers={"User-Agent": "inat-diff-visualize"}
+                )
+                response.raise_for_status()
+                payload = response.json()
 
-        if payload.get("total_results"):
-            return grade
+                # Success - check if this grade has results
+                if payload.get("total_results"):
+                    return (grade, None)
+                # No results for this grade, try next grade
+                break
 
-    return None
+            except requests.RequestException as e:
+                if attempt < max_retries - 1:
+                    # Retry with exponential backoff
+                    time.sleep(retry_delay * (2 ** attempt))
+                else:
+                    # Final attempt failed
+                    return (None, f"API error: {str(e)}")
+            except (ValueError, KeyError) as e:
+                # JSON parsing error - don't retry
+                return (None, f"Invalid API response: {str(e)}")
+
+    # No observations found for any quality grade
+    return (None, None)
 
 
-def annotate_species_with_quality(species_list: Iterable[Dict[str, Any]], place_id: Any) -> None:
-    """Augment each species dict with its highest observation quality label."""
+def annotate_species_with_quality(species_list: Iterable[Dict[str, Any]], place_id: Any, rate_limit: float = 1.2) -> None:
+    """Augment each species dict with its highest observation quality label.
+
+    Note: This function modifies the species dictionaries in-place by adding a
+    'highest_quality_grade_label' field to each species.
+
+    Args:
+        species_list: Iterable of species dictionaries to annotate
+        place_id: iNaturalist place ID for the region
+        rate_limit: Seconds to wait between API calls (default: 1.2)
+    """
     normalized_place_id = _normalize_int(place_id)
+    total_species = len(species_list) if hasattr(species_list, '__len__') else None
 
-    for species in species_list:
+    for idx, species in enumerate(species_list, 1):
+        # Progress indication
+        if total_species:
+            print(f"Fetching quality grades: {idx}/{total_species} species...", file=sys.stderr)
+        else:
+            print(f"Fetching quality grades: {idx} species...", file=sys.stderr)
+
         taxon_id = _normalize_int(species.get("id"))
         if taxon_id is None:
             species["highest_quality_grade_label"] = "Unknown"
             continue
 
-        grade_key = _fetch_highest_quality_grade(taxon_id, normalized_place_id)
-        if grade_key:
+        grade_key, error_msg = _fetch_highest_quality_grade(taxon_id, normalized_place_id)
+
+        if error_msg:
+            # API call failed
+            species["highest_quality_grade_label"] = "API Error"
+            species_name = species.get("name", f"taxon {taxon_id}")
+            print(f"Error fetching quality for {species_name}: {error_msg}", file=sys.stderr)
+        elif grade_key:
+            # Successfully found quality grade
             species["highest_quality_grade_label"] = QUALITY_LABELS.get(grade_key, grade_key.title())
         else:
+            # No observations found (shouldn't normally happen)
             species["highest_quality_grade_label"] = "Unknown"
+
+        # Rate limiting - sleep after each API call
+        # (We sleep even after the last one to keep the logic simple)
+        time.sleep(rate_limit)
 
 
 def format_species_item(species: Dict[str, Any], query: Dict[str, Any], is_new: bool = False) -> str:
@@ -326,7 +378,7 @@ def format_species_item(species: Dict[str, Any], query: Dict[str, Any], is_new: 
     """
 
 
-def generate_new_species_html(data: Dict[str, Any]) -> str:
+def generate_new_species_html(data: Dict[str, Any], include_quality: bool = False, rate_limit: float = 1.2) -> str:
     """Generate HTML for new-species command output."""
     query = data.get("query", {})
     region = query.get("region", "Unknown Region")
@@ -378,7 +430,8 @@ def generate_new_species_html(data: Dict[str, Any]) -> str:
     # Build new species list
     new_species_html = ""
     if new_species:
-        annotate_species_with_quality(new_species, query.get("place_id"))
+        if include_quality:
+            annotate_species_with_quality(new_species, query.get("place_id"), rate_limit=rate_limit)
         species_items = [format_species_item(sp, query, is_new=True) for sp in new_species]
         new_species_html = f"""
         <div class="species-section">
@@ -394,7 +447,7 @@ def generate_new_species_html(data: Dict[str, Any]) -> str:
     return HTML_TEMPLATE.format(title=title, content=content)
 
 
-def generate_list_species_html(data: Dict[str, Any]) -> str:
+def generate_list_species_html(data: Dict[str, Any], include_quality: bool = False, rate_limit: float = 1.2) -> str:
     """Generate HTML for list-species command output."""
     query = data.get("query", {})
     region = query.get("region", "Unknown Region")
@@ -435,7 +488,8 @@ def generate_list_species_html(data: Dict[str, Any]) -> str:
     # Build species list
     species_html = ""
     if species:
-        annotate_species_with_quality(species, query.get("place_id"))
+        if include_quality:
+            annotate_species_with_quality(species, query.get("place_id"), rate_limit=rate_limit)
         species_items = [format_species_item(sp, query, is_new=False) for sp in species]
         species_html = f"""
         <div class="species-section">
@@ -509,13 +563,13 @@ def generate_query_html(data: Dict[str, Any]) -> str:
     return HTML_TEMPLATE.format(title=title, content=content)
 
 
-def generate_html(data: Dict[str, Any]) -> str:
+def generate_html(data: Dict[str, Any], include_quality: bool = False, rate_limit: float = 1.2) -> str:
     """Generate HTML based on the type of query results."""
     # Detect result type based on fields present
     if "new_species_count" in data:
-        return generate_new_species_html(data)
+        return generate_new_species_html(data, include_quality=include_quality, rate_limit=rate_limit)
     elif "species_count" in data and "species" in data:
-        return generate_list_species_html(data)
+        return generate_list_species_html(data, include_quality=include_quality, rate_limit=rate_limit)
     elif "query" in data and "taxon_name" in data.get("query", {}):
         return generate_query_html(data)
     else:
@@ -539,6 +593,18 @@ Examples:
 
     parser.add_argument("input_file", help="Input JSON file from inat-diff")
     parser.add_argument("output_file", help="Output HTML file")
+    parser.add_argument(
+        "--include-quality",
+        action="store_true",
+        help="Include observation quality grade for each species (requires API calls, slow for large datasets)"
+    )
+    parser.add_argument(
+        "--rate-limit",
+        type=float,
+        default=1.2,
+        dest="rate_limit",
+        help="Seconds to wait between API calls when using --include-quality (default: 1.2 = 50/min, iNat limit is 60-100/min)"
+    )
 
     args = parser.parse_args()
 
@@ -560,7 +626,7 @@ Examples:
 
     # Generate HTML
     try:
-        html = generate_html(data)
+        html = generate_html(data, include_quality=args.include_quality, rate_limit=args.rate_limit)
     except ValueError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
