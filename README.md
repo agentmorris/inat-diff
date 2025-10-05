@@ -153,12 +153,33 @@ The HTML report includes:
 - Observation counts for current and historical periods
 - Responsive design for mobile and desktop viewing
 
+**Quality Grade Annotations (Optional):**
+```bash
+# Include observation quality grades (Research/Needs ID/Casual)
+inat-diff-visualize results.json report.html --include-quality
+
+# Customize API rate limiting (default: 1.2 seconds between calls)
+inat-diff-visualize results.json report.html --include-quality --rate-limit 0.6
+```
+
+This fetches the highest available quality grade for each species from iNaturalist's API:
+- Displays "Best quality: Research Grade", "Needs ID", or "Casual" for each species
+- Requires O(N) API calls where N = number of species (can be slow for large datasets)
+- Includes automatic retry logic (3 attempts with exponential backoff) for failed API calls
+- Progress indication shows current species being processed
+- Rate limiting respects iNaturalist API guidelines (default: 1.2s = 50 req/min, safe range: 0.6-1.2s)
+- Useful for filtering to high-quality observations for scientific purposes
+- Disabled by default to keep visualization fast and offline
+
 **Example:**
 ```bash
 # Complete workflow
 inat-diff new-species "last month" "Delaware" -o delaware.json
 inat-diff-visualize delaware.json delaware.html
 open delaware.html  # or xdg-open on Linux
+
+# With quality grades (slower but more informative)
+inat-diff-visualize delaware.json delaware_with_quality.html --include-quality
 ```
 
 ## JSON Output Format
