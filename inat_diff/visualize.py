@@ -3,8 +3,21 @@
 import argparse
 import json
 import sys
+from functools import lru_cache
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict, Iterable, Optional
+
+import requests
+
+
+API_BASE_URL = "https://api.inaturalist.org/v1/observations"
+QUALITY_PRIORITY = ("research", "needs_id", "casual")
+QUALITY_LABELS = {
+    "research": "Research Grade",
+    "needs_id": "Needs ID",
+    "casual": "Casual",
+}
+REQUEST_TIMEOUT = 10
 
 
 HTML_TEMPLATE = """<!DOCTYPE html>
@@ -154,6 +167,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             color: #666;
             margin-top: 4px;
         }}
+        .quality-grade {{
+            font-size: 12px;
+            color: #555;
+            margin-top: 6px;
+        }}
         .view-link {{
             display: inline-block;
             margin-top: 8px;
@@ -194,6 +212,57 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 """
 
 
+def _normalize_int(value: Any) -> Optional[int]:
+    """Return value as int if possible, otherwise None."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+@lru_cache(maxsize=512)
+def _fetch_highest_quality_grade(taxon_id: int, place_id: Optional[int]) -> Optional[str]:
+    """Return highest available observation quality grade for a taxon."""
+    base_params = {"taxon_id": taxon_id, "per_page": 1}
+    if place_id is not None:
+        base_params["place_id"] = place_id
+
+    for grade in QUALITY_PRIORITY:
+        params = dict(base_params)
+        params["quality_grade"] = grade
+
+        try:
+            response = requests.get(
+                API_BASE_URL, params=params, timeout=REQUEST_TIMEOUT, headers={"User-Agent": "inat-diff-visualize"}
+            )
+            response.raise_for_status()
+            payload = response.json()
+        except (requests.RequestException, ValueError):
+            return None
+
+        if payload.get("total_results"):
+            return grade
+
+    return None
+
+
+def annotate_species_with_quality(species_list: Iterable[Dict[str, Any]], place_id: Any) -> None:
+    """Augment each species dict with its highest observation quality label."""
+    normalized_place_id = _normalize_int(place_id)
+
+    for species in species_list:
+        taxon_id = _normalize_int(species.get("id"))
+        if taxon_id is None:
+            species["highest_quality_grade_label"] = "Unknown"
+            continue
+
+        grade_key = _fetch_highest_quality_grade(taxon_id, normalized_place_id)
+        if grade_key:
+            species["highest_quality_grade_label"] = QUALITY_LABELS.get(grade_key, grade_key.title())
+        else:
+            species["highest_quality_grade_label"] = "Unknown"
+
+
 def format_species_item(species: Dict[str, Any], query: Dict[str, Any], is_new: bool = False) -> str:
     """Format a single species as HTML list item."""
     name = species.get("name", "Unknown")
@@ -204,6 +273,7 @@ def format_species_item(species: Dict[str, Any], query: Dict[str, Any], is_new: 
     iconic_taxon = species.get("iconic_taxon", "")
     obs_count = species.get("observation_count", 0)
     historical_count = species.get("historical_count")
+    quality_label = species.get("highest_quality_grade_label")
 
     # Build display name
     if common_name:
@@ -233,6 +303,10 @@ def format_species_item(species: Dict[str, Any], query: Dict[str, Any], is_new: 
         else:
             historical_html = f'<div class="historical-count">Historical: {historical_count:,} obs.</div>'
 
+    quality_html = ""
+    if quality_label:
+        quality_html = f'<div class="quality-grade">Best quality: {quality_label}</div>'
+
     return f"""
     <li class="species-item">
         <div class="species-info">
@@ -244,8 +318,9 @@ def format_species_item(species: Dict[str, Any], query: Dict[str, Any], is_new: 
         <div class="species-stats">
             <div class="obs-count">{obs_count:,}</div>
             <div class="obs-label">observations</div>
+            {quality_html}
             {historical_html}
-            <a href="{obs_link}" class="view-link">View on iNaturalist →</a>
+            <a href="{obs_link}" class="view-link">View on iNaturalist</a>
         </div>
     </li>
     """
@@ -273,7 +348,7 @@ def generate_new_species_html(data: Dict[str, Any]) -> str:
     title = f"New Species in {region}"
     header = f"""
     <div class="header">
-        <h1>🔍 New Species Report: {region}</h1>
+        <h1>New Species Report: {region}</h1>
         <p><strong>Period:</strong> {time_period} ({start_date} to {end_date})</p>
         <p><strong>Lookback:</strong> {lookback_years} years ({lookback_period})</p>
     </div>
@@ -303,10 +378,11 @@ def generate_new_species_html(data: Dict[str, Any]) -> str:
     # Build new species list
     new_species_html = ""
     if new_species:
+        annotate_species_with_quality(new_species, query.get("place_id"))
         species_items = [format_species_item(sp, query, is_new=True) for sp in new_species]
         new_species_html = f"""
         <div class="species-section">
-            <h2>🆕 New Species ({new_count:,})</h2>
+            <h2>New Species ({new_count:,})</h2>
             <p>Species observed in {region} during {time_period} with no observations in the previous {lookback_years} years.</p>
             <ul class="species-list">
                 {"".join(species_items)}
@@ -334,7 +410,7 @@ def generate_list_species_html(data: Dict[str, Any]) -> str:
     title = f"Species in {region}"
     header = f"""
     <div class="header">
-        <h1>📋 Species List: {region}</h1>
+        <h1>Species List: {region}</h1>
         <p><strong>Period:</strong> {time_period} ({start_date} to {end_date})</p>
     </div>
     """
@@ -359,6 +435,7 @@ def generate_list_species_html(data: Dict[str, Any]) -> str:
     # Build species list
     species_html = ""
     if species:
+        annotate_species_with_quality(species, query.get("place_id"))
         species_items = [format_species_item(sp, query, is_new=False) for sp in species]
         species_html = f"""
         <div class="species-section">
@@ -390,7 +467,7 @@ def generate_query_html(data: Dict[str, Any]) -> str:
     title = f"{taxon_name} in {region}"
     header = f"""
     <div class="header">
-        <h1>🔎 Species Query: <em>{taxon_name}</em></h1>
+        <h1>Species Query: <em>{taxon_name}</em></h1>
         <p><strong>Region:</strong> {region}</p>
         <p><strong>Period:</strong> {time_period} ({start_date} to {end_date})</p>
     </div>
@@ -423,7 +500,7 @@ def generate_query_html(data: Dict[str, Any]) -> str:
     <div class="species-section">
         <h2>View Observations</h2>
         <p>
-            <a href="{obs_link}" class="view-link">View all observations on iNaturalist →</a>
+            <a href="{obs_link}" class="view-link">View all observations on iNaturalist</a>
         </p>
     </div>
     """
