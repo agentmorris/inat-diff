@@ -2,6 +2,8 @@
 
 A Python library and CLI tool for querying iNaturalist observations to detect species presence patterns across regions and time periods. Designed for invasive species monitoring and biodiversity research.
 
+An example of the output of this system is available [here](http://dmorris.net/misc/tmp/last-30-days-oregon.html); that page shows taxa that were observed in Oregon for the first time in the 30 days prior to 2025.10.03.
+
 ## Features
 
 - Query species observations by region and time period
@@ -350,3 +352,4 @@ This is a prototype library. Future enhancements could include:
 - Geographic boundary file support
 - Web-based interface
 - Advanced statistical analysis
+
