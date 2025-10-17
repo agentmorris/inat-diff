@@ -142,6 +142,58 @@ class iNatClient:
         # If no exact match, return the first result
         return places[0]["id"]
 
+    def resolve_place_with_info(self, place_name: str) -> tuple[int, dict]:
+        """
+        Resolve a place name to a place ID and return detailed information.
+
+        Returns:
+            tuple: (place_id, place_info_dict) where place_info_dict contains:
+                - id: The place ID
+                - name: The place name
+                - display_name: The full display name
+                - place_type: The place type code
+                - matched_as: How the place was matched (priority/exact/fallback)
+        """
+        places = self.search_places(place_name)
+
+        if not places:
+            raise PlaceNotFoundError(f"No places found for '{place_name}'")
+
+        # Prioritize places by type (countries, states, counties)
+        priority_types = ["country", "state", "county", "province"]
+
+        for place_type in priority_types:
+            for place in places:
+                if place.get("place_type") == place_type and place_name.lower() in place.get("name", "").lower():
+                    return place["id"], {
+                        "id": place["id"],
+                        "name": place.get("name"),
+                        "display_name": place.get("display_name"),
+                        "place_type": place.get("place_type"),
+                        "matched_as": f"priority ({place_type})"
+                    }
+
+        # If no priority match, return the first exact name match
+        for place in places:
+            if place.get("name", "").lower() == place_name.lower():
+                return place["id"], {
+                    "id": place["id"],
+                    "name": place.get("name"),
+                    "display_name": place.get("display_name"),
+                    "place_type": place.get("place_type"),
+                    "matched_as": "exact name match"
+                }
+
+        # If no exact match, return the first result
+        first_place = places[0]
+        return first_place["id"], {
+            "id": first_place["id"],
+            "name": first_place.get("name"),
+            "display_name": first_place.get("display_name"),
+            "place_type": first_place.get("place_type"),
+            "matched_as": "fallback (first result)"
+        }
+
     def resolve_taxon(self, taxon_name: str) -> int:
         """Resolve a taxon name to a taxon ID."""
         taxa = self.search_taxa(taxon_name)

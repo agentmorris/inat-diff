@@ -22,7 +22,16 @@ def format_results(results: Dict[str, Any]) -> str:
 
     # Handle "find all new species" results
     if "new_species_count" in results:
-        output.append(f"Region: {query.get('region', 'Unknown')}")
+        # Show place resolution info
+        if query.get('place_display_name'):
+            output.append(f"Region searched: {query.get('region', 'Unknown')}")
+            output.append(f"Resolved to: {query.get('place_display_name', 'Unknown')} (ID: {query.get('place_id', 'Unknown')})")
+            if query.get('place_matched_as') == 'fallback (first result)':
+                output.append(f"⚠️  WARNING: No exact match found - using first search result")
+            output.append("")
+        else:
+            output.append(f"Region: {query.get('region', 'Unknown')}")
+
         output.append(f"Period: {query.get('time_period', 'Unknown')} ({query.get('start_date')} to {query.get('end_date')})")
         output.append(f"Lookback: {results.get('lookback_years', 0)} years ({results.get('lookback_period', 'Unknown')})")
         output.append(f"\nTotal species in period: {results.get('total_species_in_period', 0)}")

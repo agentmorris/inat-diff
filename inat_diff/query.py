@@ -227,7 +227,17 @@ class SpeciesQuery:
         historical_end = datetime.strptime(start_date, "%Y-%m-%d") - timedelta(days=1)
         historical_start = historical_end - timedelta(days=365 * lookback_years)
 
-        place_id = self.client.resolve_place(region)
+        place_id, place_info = self.client.resolve_place_with_info(region)
+
+        # Print place resolution info if verbose
+        if verbose:
+            print(f"Resolved '{region}' to:", file=sys.stderr)
+            print(f"  Place: {place_info['display_name']}", file=sys.stderr)
+            print(f"  Place ID: {place_info['id']}", file=sys.stderr)
+            print(f"  Match type: {place_info['matched_as']}", file=sys.stderr)
+            if place_info['matched_as'] == 'fallback (first result)':
+                print(f"  ⚠️  WARNING: No exact match found, using first result", file=sys.stderr)
+            print(file=sys.stderr)
 
         # Helper function to fetch all species with retry logic
         def fetch_all_species(period_start: str, period_end: str, period_name: str):
@@ -365,6 +375,9 @@ class SpeciesQuery:
             "query": {
                 "region": region,
                 "place_id": place_id,
+                "place_name": place_info["name"],
+                "place_display_name": place_info["display_name"],
+                "place_matched_as": place_info["matched_as"],
                 "time_period": time_period,
                 "start_date": start_date,
                 "end_date": end_date
