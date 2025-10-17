@@ -126,12 +126,26 @@ class iNatClient:
         if not places:
             raise PlaceNotFoundError(f"No places found for '{place_name}'")
 
+        # Place type mapping from iNaturalist source code
+        # https://github.com/inaturalist/inaturalist/blob/main/app/models/place.rb
+        PLACE_TYPE_MAPPING = {
+            12: "country",
+            8: "state",
+            9: "county",
+            7: "town",
+            103: "province",
+            100: "open_space",
+            # Add more mappings as needed
+        }
+
         # Prioritize places by type (countries, states, counties)
         priority_types = ["country", "state", "county", "province"]
 
         for place_type in priority_types:
             for place in places:
-                if place.get("place_type") == place_type and place_name.lower() in place.get("name", "").lower():
+                numeric_place_type = place.get("place_type")
+                place_type_name = PLACE_TYPE_MAPPING.get(numeric_place_type, "").lower()
+                if place_type_name == place_type and place_name.lower() in place.get("name", "").lower():
                     return place["id"]
 
         # If no priority match, return the first exact name match
@@ -159,12 +173,26 @@ class iNatClient:
         if not places:
             raise PlaceNotFoundError(f"No places found for '{place_name}'")
 
+        # Place type mapping from iNaturalist source code
+        # https://github.com/inaturalist/inaturalist/blob/main/app/models/place.rb
+        PLACE_TYPE_MAPPING = {
+            12: "country",
+            8: "state",
+            9: "county",
+            7: "town",
+            103: "province",
+            100: "open_space",
+            # Add more mappings as needed
+        }
+
         # Prioritize places by type (countries, states, counties)
         priority_types = ["country", "state", "county", "province"]
 
         for place_type in priority_types:
             for place in places:
-                if place.get("place_type") == place_type and place_name.lower() in place.get("name", "").lower():
+                numeric_place_type = place.get("place_type")
+                place_type_name = PLACE_TYPE_MAPPING.get(numeric_place_type, "").lower()
+                if place_type_name == place_type and place_name.lower() in place.get("name", "").lower():
                     return place["id"], {
                         "id": place["id"],
                         "name": place.get("name"),
