@@ -14,6 +14,7 @@ def parse_time_period(time_str: str) -> Tuple[str, str]:
     - "last N days/weeks/months/years"
     - "past N days/weeks/months/years"
     - "this month/year"
+    - "last month/year"
     - "YYYY-MM-DD to YYYY-MM-DD" (explicit date range)
 
     Returns:
@@ -37,9 +38,22 @@ def parse_time_period(time_str: str) -> Tuple[str, str]:
             end_date = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
         return start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
 
+    if time_str == "last month":
+        # Get first day of current month, then go back one day to get last day of previous month
+        first_of_this_month = today.replace(day=1)
+        last_of_last_month = first_of_this_month - timedelta(days=1)
+        # Get first day of that month
+        first_of_last_month = last_of_last_month.replace(day=1)
+        return first_of_last_month.strftime("%Y-%m-%d"), last_of_last_month.strftime("%Y-%m-%d")
+
     if time_str == "this year":
         start_date = today.replace(month=1, day=1)
         end_date = today.replace(month=12, day=31)
+        return start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
+
+    if time_str == "last year":
+        start_date = today.replace(year=today.year - 1, month=1, day=1)
+        end_date = today.replace(year=today.year - 1, month=12, day=31)
         return start_date.strftime("%Y-%m-%d"), end_date.strftime("%Y-%m-%d")
 
     # Handle "last/past N period" patterns

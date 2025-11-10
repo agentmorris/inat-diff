@@ -12,12 +12,54 @@ An example of the output of this system is available [here](http://dmorris.net/m
 - Support for flexible time period formats
 - Command-line interface and Python library
 
+## 🚀 MCP Server for Claude - Easy Installation!
+
+**NEW:** Use this tool directly in Claude Desktop with **one simple command!** No technical knowledge required.
+
+### For Non-Technical Users: One-Click Install
+
+**macOS/Linux:**
+```bash
+bash install_mcp.sh
+```
+
+**Windows:**
+Double-click `install_mcp.bat`
+
+**Then restart Claude Desktop and start asking questions!**
+
+👉 **See [QUICKSTART.md](QUICKSTART.md) for complete beginner-friendly setup** 👈
+
+### What You Can Do
+
+Ask Claude natural language questions like:
+- *"What new species appeared in Oregon this month?"*
+- *"Has the Burmese Python been observed in Florida this year?"*
+- *"List all species in Yellowstone National Park this summer"*
+
+The MCP server makes this tool accessible to invasive species biologists and researchers without any programming knowledge.
+
+📚 **Documentation:**
+- [QUICKSTART.md](QUICKSTART.md) - Simple installation guide
+- [MCP_README.md](MCP_README.md) - Complete MCP documentation
+- [INSTALL_MCP.md](INSTALL_MCP.md) - Manual installation & troubleshooting
+
 ## Installation
+
+### Standard Installation (CLI & Python Library)
 
 ```bash
 pip install -r requirements.txt
 pip install -e .
 ```
+
+### MCP Server Installation
+
+```bash
+pip install -e ".[mcp]"
+```
+
+See [MCP_README.md](MCP_README.md) for complete MCP server setup.
 
 ## Quick Start
 
