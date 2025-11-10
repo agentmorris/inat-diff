@@ -11,48 +11,18 @@ An example of the output of this system is available [here](http://dmorris.net/m
 - List all species observed in a region during a time period
 - Support for flexible time period formats
 - Command-line interface and Python library
-
-## 🚀 MCP Server for Claude - Easy Installation!
-
-**NEW:** Use this tool directly in Claude Desktop with **one simple command!** No technical knowledge required.
-
-### For Non-Technical Users: One-Click Install
-
-**macOS/Linux:**
-```bash
-bash inat-diff-mcp/install_mcp.sh
-```
-
-**Windows:**
-Double-click `inat-diff-mcp/install_mcp.bat`
-
-**Then restart Claude Desktop and start asking questions!**
-
-👉 **See [inat-diff-mcp/QUICKSTART.md](inat-diff-mcp/QUICKSTART.md) for complete beginner-friendly setup** 👈
-
-### What You Can Do
-
-Ask Claude natural language questions like:
-- *"What new species appeared in Oregon this month?"*
-- *"Has the Burmese Python been observed in Florida this year?"*
-- *"List all species in Yellowstone National Park this summer"*
-
-The MCP server makes this tool accessible to invasive species biologists and researchers without any programming knowledge.
-
-📚 **Documentation:**
-- [inat-diff-mcp/QUICKSTART.md](inat-diff-mcp/QUICKSTART.md) - Simple installation guide
-- [inat-diff-mcp/MCP_README.md](inat-diff-mcp/MCP_README.md) - Complete MCP documentation
+- MCP Server for natural language interaction
 
 ## Installation
 
-### Standard Installation (CLI & Python Library)
+### Standard installation (CLI & Python Library)
 
 ```bash
 pip install -r requirements.txt
 pip install -e .
 ```
 
-### MCP Server Installation
+### MCP server installation
 
 ```bash
 pip install -e ".[mcp]"
@@ -60,9 +30,9 @@ pip install -e ".[mcp]"
 
 See [inat-diff-mcp/MCP_README.md](inat-diff-mcp/MCP_README.md) for complete MCP server setup.
 
-## Quick Start
+## Quick start
 
-### Command Line Interface
+### Command line interface
 
 ```bash
 # Query specific species observations
@@ -78,7 +48,7 @@ inat-diff new-species "this year" "Florida" "Python bivittatus" --lookback-years
 inat-diff list-species "last month" "Oregon"
 ```
 
-### Python Library
+### Python library
 
 ```python
 from inat_diff import SpeciesQuery
@@ -111,15 +81,17 @@ print(f"New to region: {specific['is_new_to_region']}")
 print(f"Analysis: {specific['analysis']}")
 ```
 
-## Supported Formats
+## Supported formats
 
-### Time Periods
+### Time periods
+
 - `"last N days/weeks/months/years"`
 - `"past N days/weeks/months/years"`
 - `"this month/year"`
 - `"YYYY-MM-DD to YYYY-MM-DD"` (explicit date ranges)
 
 ### Regions
+
 iNaturalist supports various place types. The tool works with any place name recognized by iNaturalist:
 
 **Standard Places (maintained by iNaturalist staff):**
@@ -139,31 +111,37 @@ iNaturalist supports various place types. The tool works with any place name rec
 - If unsure, check [iNaturalist Places](https://www.inaturalist.org/places) to verify the exact name
 
 ### Taxa
+
 - Latin names in iNaturalist taxonomy: "Panthera leo", "Python bivittatus"
 - Genus and species format recommended
 
 ## Commands
 
 ### `query`
+
 Query for specific species observations in a region and time period.
 
 ```bash
 inat-diff query "Canis lupus" "last 6 months" "Montana"
 ```
 
-### `new-species` (Main Use Case)
+### `new-species`
+
 Find all species that appear to be new to a region, or check a specific species.
 
 **Find all new species in a region:**
+
 ```bash
 inat-diff new-species "this month" "Oregon" --lookback-years 20 --rate-limit 1.0
 ```
 
 **Options:**
+
 - `--lookback-years N`: Years to look back for historical data (default: 5, recommended: 20)
 - `--rate-limit N`: Seconds between API calls (default: 1.0 = 60 req/min, max safe: 0.6 = 100 req/min)
 
-**Performance:** Performance notes for Oregon:
+**Performance notes for Oregon:**
+
 - Last week (~2,000 species): ~35 minutes at default rate
 - Last month (~6,000 species): ~100 minutes at default rate
 - Use `--rate-limit 0.6` to go faster (max iNaturalist allows)
@@ -176,7 +154,7 @@ List all species observed in a region during a time period.
 inat-diff list-species "this month" "Oregon"
 ```
 
-## HTML Visualization
+## HTML visualization
 
 Generate interactive HTML reports from JSON output:
 
@@ -189,6 +167,7 @@ inat-diff-visualize results.json report.html
 ```
 
 The HTML report includes:
+
 - Summary statistics with visual cards
 - Sortable species lists with common and scientific names
 - Direct links to iNaturalist observations for each species
@@ -196,7 +175,8 @@ The HTML report includes:
 - Observation counts for current and historical periods
 - Responsive design for mobile and desktop viewing
 
-**Quality Grade Annotations (Optional):**
+**Quality grade annotations (optional):**
+
 ```bash
 # Include observation quality grades (Research/Needs ID/Casual)
 inat-diff-visualize results.json report.html --include-quality
@@ -206,6 +186,7 @@ inat-diff-visualize results.json report.html --include-quality --rate-limit 0.6
 ```
 
 This fetches the highest available quality grade for each species from iNaturalist's API:
+
 - Displays "Best quality: Research Grade", "Needs ID", or "Casual" for each species
 - Requires O(N) API calls where N = number of species (can be slow for large datasets)
 - Includes automatic retry logic (3 attempts with exponential backoff) for failed API calls
@@ -215,6 +196,7 @@ This fetches the highest available quality grade for each species from iNaturali
 - Disabled by default to keep visualization fast and offline
 
 **Example:**
+
 ```bash
 # Complete workflow
 inat-diff new-species "last month" "Delaware" -o delaware.json
@@ -225,11 +207,11 @@ open delaware.html  # or xdg-open on Linux
 inat-diff-visualize delaware.json delaware_with_quality.html --include-quality
 ```
 
-## JSON Output Format
+## JSON output format
 
 All commands support the `--output-file` (`-o`) option to save results as JSON. This is useful for creating visualizations, further analysis, or linking to iNaturalist observations.
 
-### `new-species` Output
+### `new-species` output
 
 ```json
 {
@@ -271,7 +253,8 @@ All commands support the `--output-file` (`-o`) option to save results as JSON. 
 }
 ```
 
-**Field Descriptions:**
+**Field descriptions:**
+
 - **`query`**: Metadata about the search parameters
   - `region`: Region name as provided
   - `place_id`: iNaturalist place ID for the region
@@ -286,7 +269,8 @@ All commands support the `--output-file` (`-o`) option to save results as JSON. 
 - **`established_species`**: Array of species objects with prior observations
 - **`rate_limit_seconds`**: Rate limiting setting used
 
-**Species Object Fields:**
+**Species object fields:**
+
 - `id`: iNaturalist taxon ID (can be used to construct URLs: `https://www.inaturalist.org/taxa/{id}`)
 - `name`: Scientific (Latin) name
 - `preferred_common_name`: Common name in English (may be `null`)
@@ -295,7 +279,7 @@ All commands support the `--output-file` (`-o`) option to save results as JSON. 
 - `observation_count`: Number of observations in the current period
 - `historical_count`: Number of observations in the lookback period (0 for new species)
 
-### `query` Output
+### `query` output
 
 ```json
 {
@@ -325,7 +309,7 @@ All commands support the `--output-file` (`-o`) option to save results as JSON. 
 }
 ```
 
-### `list-species` Output
+### `list-species` output
 
 ```json
 {
@@ -350,29 +334,32 @@ All commands support the `--output-file` (`-o`) option to save results as JSON. 
 }
 ```
 
-## Library Components
+## Library components
 
 - **`iNatClient`**: Core API client for iNaturalist
 - **`SpeciesQuery`**: Main query interface
 - **`parse_time_period()`**: Time period parsing utilities
 - **CLI**: Command-line interface
 
-## Use Cases
+## Use cases
 
-- **Invasive Species Monitoring**: Detect when non-native species first appear in new regions
-- **Biodiversity Research**: Track species distribution changes over time
-- **Citizen Science**: Analyze iNaturalist observation patterns
-- **Conservation**: Monitor protected species presence
+- **Invasive species monitoring**: detect when non-native species first appear in new regions
+- **Biodiversity research**: track species distribution changes over time
+- **Citizen science**: analyze iNaturalist observation patterns
+- **Conservation**: monitor protected species presence
 
-## Implementation Details
+## Implementation details
 
-### Efficient API Usage
+### Efficient API usage
+
 The system uses iNaturalist's `species_counts` endpoint for efficient querying:
+
 1. Fetches all species in the current period (a few API calls with pagination)
 2. For each species, checks historical presence (1 API call per species)
 3. Respects rate limits: 60-100 requests/minute per [iNaturalist API guidelines](https://www.inaturalist.org/pages/api+recommended+practices)
 
-### Rate Limiting
+### Rate limiting
+
 - Default: 1.0 second between requests (60 req/min)
 - Recommended max: 0.6 seconds (100 req/min)
 - Automatically adjusts on errors with exponential backoff
@@ -385,6 +372,32 @@ The system uses iNaturalist's `species_counts` endpoint for efficient querying:
 - Geographic boundaries depend on iNaturalist's place database
 - Lookback period is limited to available historical data (iNaturalist started ~2008)
 
+## MCP Server for Claude Desktop
+
+### One-click install
+
+See [inat-diff-mcp/QUICKSTART.md](inat-diff-mcp/QUICKSTART.md) for complete beginner-friendly setup, and see [inat-diff-mcp/MCP_README.md](inat-diff-mcp/MCP_README.md) for complete MCP documentation.
+
+#### macOS/Linux
+
+```bash
+bash inat-diff-mcp/install_mcp.sh
+```
+
+#### Windows
+
+Double-click `inat-diff-mcp/install_mcp.bat`
+
+### What you can do with the MCP server
+
+Ask natural language questions like:
+
+- "What new species appeared in Oregon this month?"
+- "Has the Burmese Python been observed in Florida this year?"
+- "List all species in Yellowstone National Park this summer"
+
+- [inat-diff-mcp/QUICKSTART.md](inat-diff-mcp/QUICKSTART.md) - Simple installation guide
+
 ## Contributing
 
 This is a prototype library. Future enhancements could include:
@@ -393,4 +406,3 @@ This is a prototype library. Future enhancements could include:
 - Geographic boundary file support
 - Web-based interface
 - Advanced statistical analysis
-
