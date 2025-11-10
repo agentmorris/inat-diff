@@ -182,6 +182,7 @@ Supported time periods:
   - "last N days/weeks/months/years"
   - "past N days/weeks/months/years"
   - "this month/year"
+  - "last month/year"
   - "YYYY-MM-DD to YYYY-MM-DD"
 
 Supported regions:
