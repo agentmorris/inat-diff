@@ -20,15 +20,15 @@ An example of the output of this system is available [here](http://dmorris.net/m
 
 **macOS/Linux:**
 ```bash
-bash install_mcp.sh
+bash inat-diff-mcp/install_mcp.sh
 ```
 
 **Windows:**
-Double-click `install_mcp.bat`
+Double-click `inat-diff-mcp/install_mcp.bat`
 
 **Then restart Claude Desktop and start asking questions!**
 
-👉 **See [QUICKSTART.md](QUICKSTART.md) for complete beginner-friendly setup** 👈
+👉 **See [inat-diff-mcp/QUICKSTART.md](inat-diff-mcp/QUICKSTART.md) for complete beginner-friendly setup** 👈
 
 ### What You Can Do
 
@@ -40,9 +40,8 @@ Ask Claude natural language questions like:
 The MCP server makes this tool accessible to invasive species biologists and researchers without any programming knowledge.
 
 📚 **Documentation:**
-- [QUICKSTART.md](QUICKSTART.md) - Simple installation guide
-- [MCP_README.md](MCP_README.md) - Complete MCP documentation
-- [INSTALL_MCP.md](INSTALL_MCP.md) - Manual installation & troubleshooting
+- [inat-diff-mcp/QUICKSTART.md](inat-diff-mcp/QUICKSTART.md) - Simple installation guide
+- [inat-diff-mcp/MCP_README.md](inat-diff-mcp/MCP_README.md) - Complete MCP documentation
 
 ## Installation
 
@@ -59,7 +58,7 @@ pip install -e .
 pip install -e ".[mcp]"
 ```
 
-See [MCP_README.md](MCP_README.md) for complete MCP server setup.
+See [inat-diff-mcp/MCP_README.md](inat-diff-mcp/MCP_README.md) for complete MCP server setup.
 
 ## Quick Start
 
