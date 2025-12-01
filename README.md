@@ -4,6 +4,8 @@ A Python library and CLI tool for querying iNaturalist observations to detect sp
 
 An example of the output of this system is available [here](http://dmorris.net/misc/tmp/last-30-days-oregon.html); that page shows taxa that were observed in Oregon for the first time in the 30 days prior to 2025.10.03.
 
+This library also powers [invasives.wildme.org](https://invasives.wildme.org/), where you can sign up for email notifications about species observed in a region for the first time on iNaturalist.
+
 ## Features
 
 - Query species observations by region and time period
@@ -406,3 +408,4 @@ This is a prototype library. Future enhancements could include:
 - Geographic boundary file support
 - Web-based interface
 - Advanced statistical analysis
+
