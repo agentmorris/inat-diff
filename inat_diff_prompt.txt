@@ -1,0 +1,15 @@
+iNaturalist ("iNat" for short) is a citizen-science Web site where users post species observations, typically with pictures.  iNaturalist has an API for querying observations; the API is documented here:
+
+https://api.inaturalist.org/v1/docs/
+
+I want to build a system that asks questions about potentially invasive species, where the core query would be, for example, "what new species have been seen this month in Oregon that have not previously been observed in Oregon?"  Research the API and help me understand whether this is possible using the iNaturalist API.
+
+--
+
+[It did some research and gave me a very thoughtful "yes, this is possible, but not supported in a single query"]
+
+--
+
+Help me prototype this as a Python library and a command-line interface to that library.  The only query type it needs to support is "[taxa] seen in the last [time period] in [region]".  For now, it's OK to require that "taxa"  be a Latin name in the iNaturalist taxonomy.  "time period" can be in any reasonable format.  "region" should be a common, well-defined political boundary, we can start with countries, US states, and US counties.  I don't know whether those boundary types are natively supported by the iNaturalist API; if we need to download geometry files for those boundaries in advance, that's OK.
+
+Later we may add front-ends for this library, e.g. a Web-based querying interface, but for now, just a Python library and CLI are fine.
